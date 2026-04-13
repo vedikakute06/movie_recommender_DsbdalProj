@@ -1,23 +1,23 @@
-# 🎬 Movie Recommendation System
+#  Movie Recommendation System
 
 A content-based movie recommendation engine built with **scikit-learn** and deployed via **Streamlit**. Type in any movie from a 4800+ title dataset and instantly get 5 (or more) similar recommendations — powered by cosine similarity over movie metadata.
 
 ---
 
-## 📸 App Preview
+##  App Preview
 
 ```
 ┌─────────────────────────────────────────────┐
-│  🎬 Movie Recommendation System             │
+│   Movie Recommendation System             │
 │                                             │
-│  🔍 Choose a movie                          │
+│   Choose a movie                          │
 │  [ Avatar                              ▼ ]  │
 │                                             │
 │  Number of recommendations:  ●──── 5        │
 │                                             │
 │       [ 🎯 Get Recommendations ]            │
 │                                             │
-│  ✅ Because you liked Avatar, you might     │
+│   Because you liked Avatar, you might     │
 │     also enjoy:                             │
 │                                             │
 │   1. Guardians of the Galaxy                │
@@ -30,7 +30,7 @@ A content-based movie recommendation engine built with **scikit-learn** and depl
 
 ---
 
-## 🗂️ Project Structure
+##  Project Structure
 
 ```
 movie-recommender/
@@ -44,7 +44,7 @@ movie-recommender/
 
 ---
 
-## ⚙️ How It Works
+##  How It Works
 
 The system uses **content-based filtering** — it recommends movies similar to the one you pick based on shared content attributes, not user ratings.
 
@@ -80,7 +80,7 @@ All tokens are combined into a single string, lowercased, and vectorised. Simila
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Clone & install
 
@@ -124,7 +124,7 @@ Your app will be live at `https://YOUR_APP.streamlit.app` within ~2 minutes.
 
 ---
 
-## 📦 Dependencies
+##  Dependencies
 
 | Package | Version | Purpose |
 |---|---|---|
@@ -135,7 +135,7 @@ Your app will be live at `https://YOUR_APP.streamlit.app` within ~2 minutes.
 
 ---
 
-## 📊 Dataset
+##  Dataset
 
 The model was trained on **4,803 movies** from a TMDB-style dataset with the following columns used:
 
@@ -145,7 +145,7 @@ After dropping rows with missing values, **4,375 movies** are available in the r
 
 ---
 
-## 🔧 Customisation
+##  Customisation
 
 | What to change | Where |
 |---|---|
