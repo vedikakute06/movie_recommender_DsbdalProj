@@ -1,17 +1,21 @@
 """
 app.py  –  Movie Recommendation System
 ──────────────────────────────────────
-Run locally:
-    streamlit run app.py
+No .pkl needed! The model is built from movie_dataset.csv on first run
+and cached automatically by Streamlit.
 
-Deploy on Streamlit Cloud:
-    Push this file + movie_recommender.pkl + requirements.txt to GitHub,
-    then connect the repo at https://share.streamlit.io
+Run locally:    streamlit run app.py
+Deploy:         Push app.py + movie_dataset.csv + requirements.txt to GitHub
+                then connect at https://share.streamlit.io
 """
 
-import pickle
-import numpy as np
+import ast
+import os
+
+import pandas as pd
 import streamlit as st
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -20,51 +24,82 @@ st.set_page_config(
     layout="centered",
 )
 
-# ── Load model ────────────────────────────────────────────────────────────────
-@st.cache_resource
-def load_model(path: str = "movie_recommender.pkl"):
-    with open(path, "rb") as f:
-        bundle = pickle.load(f)
-    return bundle["movie_data"], bundle["similarity"]
+# ── Model building helpers ────────────────────────────────────────────────────
+
+def extract_names(obj, top_n=None):
+    try:
+        items = ast.literal_eval(obj)
+        names = [i["name"].replace(" ", "_") for i in items]
+        return names[:top_n] if top_n else names
+    except Exception:
+        return []
 
 
-try:
-    movie_data, similarity = load_model()
-except FileNotFoundError:
-    st.error(
-        "**movie_recommender.pkl not found.**\n\n"
-        "Run `python build_model.py --data movie_dataset.csv` first, "
-        "then place the generated `.pkl` next to `app.py`."
-    )
-    st.stop()
+def build_tags(row):
+    overview  = [w.lower() for w in str(row["overview"]).split()] if pd.notna(row["overview"]) else []
+    genres    = extract_names(row["genres"])
+    keywords  = extract_names(row["keywords"])
+    cast      = extract_names(row["cast"], top_n=3)
+    director  = [row["director"].replace(" ", "_")] if isinstance(row["director"], str) else []
+    return " ".join(overview + genres + keywords + cast + director).lower()
 
-movie_titles = movie_data["title"].tolist()
+
+# ── Load / build model ────────────────────────────────────────────────────────
+
+@st.cache_resource(show_spinner=False)
+def load_model(csv_path: str = "movie_dataset.csv"):
+    """
+    Build the recommendation model from the CSV.
+    Streamlit caches this so it only runs once per session.
+    """
+    if not os.path.exists(csv_path):
+        return None, None, f"Dataset file '{csv_path}' not found."
+
+    df = pd.read_csv(csv_path)
+    required = {"id", "title", "overview", "genres", "keywords", "cast", "director"}
+    missing = required - set(df.columns)
+    if missing:
+        return None, None, f"Dataset is missing columns: {missing}"
+
+    df = df[list(required)].dropna().reset_index(drop=True)
+    df["tags"] = df.apply(build_tags, axis=1)
+
+    cv = CountVectorizer(max_features=5000, stop_words="english")
+    vectors = cv.fit_transform(df["tags"]).toarray()
+    similarity = cosine_similarity(vectors)
+
+    movie_data = df[["id", "title"]].copy()
+    return movie_data, similarity, None
 
 
 # ── Core recommendation logic ─────────────────────────────────────────────────
-def recommend(title: str, top_n: int = 5):
-    """Return top-N similar movie titles for the given title."""
+
+def recommend(title: str, movie_data, similarity, top_n: int = 5):
     matches = movie_data[movie_data["title"].str.lower() == title.lower()]
     if matches.empty:
-        return None, []
-
+        return []
     idx = matches.index[0]
-    scores = list(enumerate(similarity[idx]))
-    scores = sorted(scores, key=lambda x: x[1], reverse=True)
-
-    # Skip the movie itself (index 0 after sorting is always itself)
-    top = [movie_data.iloc[i[0]]["title"] for i in scores[1: top_n + 1]]
-    return title, top
+    scores = sorted(enumerate(similarity[idx]), key=lambda x: x[1], reverse=True)
+    return [movie_data.iloc[i[0]]["title"] for i in scores[1: top_n + 1]]
 
 
 # ── UI ────────────────────────────────────────────────────────────────────────
+
 st.title("🎬 Movie Recommendation System")
 st.markdown(
-    "Select a movie you love and we'll suggest **5 similar movies** "
+    "Select a movie you love and we'll suggest similar movies "
     "based on genres, keywords, cast, and director."
 )
-
 st.divider()
+
+with st.spinner("⚙️ Loading model… (this takes ~15 seconds on first run)"):
+    movie_data, similarity, error = load_model()
+
+if error:
+    st.error(f"**Error:** {error}")
+    st.stop()
+
+movie_titles = movie_data["title"].tolist()
 
 selected_movie = st.selectbox(
     "🔍 Choose a movie",
@@ -79,15 +114,13 @@ if st.button("🎯 Get Recommendations", type="primary", use_container_width=Tru
     if not selected_movie:
         st.warning("Please select a movie first.")
     else:
-        _, recommendations = recommend(selected_movie, top_n=num_recs)
-
-        if not recommendations:
+        results = recommend(selected_movie, movie_data, similarity, top_n=num_recs)
+        if not results:
             st.error(f"Could not find **{selected_movie}** in the dataset.")
         else:
             st.success(f"Because you liked **{selected_movie}**, you might also enjoy:")
             st.divider()
-
-            for i, movie in enumerate(recommendations, start=1):
+            for i, movie in enumerate(results, start=1):
                 st.markdown(f"**{i}.** {movie}")
 
 st.divider()
