@@ -79,7 +79,7 @@ html, body, [class*="css"] {
 .movie-rank {
     font-family: 'Playfair Display', serif;
     font-size: 1.8rem;
-    color: #e8a04540;
+    color: #e8a04590;
     min-width: 2rem;
     text-align: center;
     line-height: 1;
@@ -184,6 +184,87 @@ div[data-baseweb="select"] > div {
     margin: 3px 3px 3px 0;
 }
 
+/* ── Movie details (expanded) ── */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+.detail-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+}
+.detail-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b6b80;
+    margin-bottom: 0.2rem;
+}
+.detail-value {
+    font-size: 0.88rem;
+    color: #d4cfc7;
+    word-break: break-word;
+}
+.detail-overview {
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid rgba(232,160,69,0.4);
+    border-radius: 0 8px 8px 0;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.88rem;
+    color: #9a9ab0;
+    line-height: 1.55;
+    margin-bottom: 0.75rem;
+}
+.detail-tagline {
+    font-style: italic;
+    color: #e8a04580;
+    font-size: 0.82rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Streamlit expander overrides */
+[data-testid="stExpander"] {
+    background: #ffffff08 !important;
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    border-radius: 14px !important;
+    margin-bottom: 0.75rem !important;
+    overflow: hidden;
+}
+[data-testid="stExpander"]:hover {
+    border-color: rgba(232, 160, 69, 0.3) !important;
+    background: #ffffff12 !important;
+    transform: translateX(4px);
+    transition: all 0.2s ease;
+}
+[data-testid="stExpander"] summary {
+    padding: 1.0rem 1.3rem !important;
+    align-items: center !important;
+    min-height: 3.4rem;
+}
+[data-testid="stExpander"] summary p {
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.97rem !important;
+    color: #f0ece4 !important;
+    margin: 0 !important;
+    line-height: 1.4 !important;
+}
+[data-testid="stExpander"] summary p strong:first-child {
+    font-family: 'Playfair Display', serif !important;
+    font-size: 1.6rem !important;
+    color: #e8a04590 !important;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+}
+[data-testid="stExpander"] details[open] {
+    border-color: rgba(232, 160, 69, 0.25) !important;
+}
+
 /* ── Dark global backdrop ── */
 .stApp { background: #0a0a14; }
 </style>
@@ -219,10 +300,22 @@ def recommend(movie, n=5):
     for i, score in ranked:
         row = df.iloc[i]
         results.append({
-            "title": row['title'],
-            "score": round(score * 100, 1),
-            "genres": row.get('genres', ''),
-            "director": row.get('director', ''),
+            "title":                row.get('title', ''),
+            "score":               round(score * 100, 1),
+            "genres":              row.get('genres', ''),
+            "director":            row.get('director', ''),
+            "overview":            row.get('overview', ''),
+            "tagline":             row.get('tagline', ''),
+            "release_date":        row.get('release_date', ''),
+            "runtime":             row.get('runtime', ''),
+            "vote_average":        row.get('vote_average', ''),
+            "vote_count":          row.get('vote_count', ''),
+            "budget":              row.get('budget', ''),
+            "revenue":             row.get('revenue', ''),
+            "original_language":   row.get('original_language', ''),
+            "cast":                row.get('cast', ''),
+            "production_companies":row.get('production_companies', ''),
+            "status":              row.get('status', ''),
         })
     return results
 
@@ -315,20 +408,87 @@ if run and selected_movie:
 
     st.markdown('<div class="section-label">Top 5 recommendations</div>', unsafe_allow_html=True)
     for rank, rec in enumerate(recs, 1):
-        genres_display = rec['genres'][:50] + "…" if len(rec['genres']) > 50 else rec['genres']
-        st.markdown(f"""
-        <div class="movie-card">
-          <div class="movie-rank">{rank}</div>
-          <div style="flex:1">
-            <p class="movie-title">{rec['title']}</p>
-            <p class="movie-meta">Dir. {rec['director'] or '—'} &nbsp;·&nbsp; {genres_display}</p>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:1.1rem;font-weight:600;color:#e8a045">{rec['score']}%</div>
-            <div style="font-size:0.72rem;color:#6b6b80">similarity</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        genres_display = rec['genres'][:55] + "…" if len(str(rec['genres'])) > 55 else rec['genres']
+        director_str = rec['director'] or '—'
+        label = (
+            f"**{rank}**     {rec['title']}  ·  "
+            f"Dir. *{director_str}*  ·  {genres_display}  ·  "
+            f"**{rec['score']}%** match"
+        )
+
+        with st.expander(label, expanded=False):
+            # ── Expanded details only (card is in the label above) ───────
+
+            tagline = str(rec.get('tagline', '')).strip()
+            if tagline and tagline != 'nan':
+                st.markdown(f'<div class="detail-tagline">❝ {tagline} ❞</div>', unsafe_allow_html=True)
+
+            overview = str(rec.get('overview', '')).strip()
+            if overview and overview != 'nan':
+                st.markdown(f'<div class="detail-overview">{overview}</div>', unsafe_allow_html=True)
+
+            # Format helpers
+            def fmt_money(val):
+                try:
+                    v = int(float(val))
+                    return f"${v:,}" if v > 0 else "N/A"
+                except (ValueError, TypeError):
+                    return "N/A"
+
+            def fmt_runtime(val):
+                try:
+                    mins = int(float(val))
+                    return f"{mins // 60}h {mins % 60}m" if mins > 0 else "N/A"
+                except (ValueError, TypeError):
+                    return "N/A"
+
+            def fmt_val(val, suffix=""):
+                if val is None or str(val).strip() in ("", "nan", "0", "0.0"):
+                    return "N/A"
+                return f"{val}{suffix}"
+
+            details = [
+                ("📅 Release Date", fmt_val(rec.get('release_date'))),
+                ("⏱ Runtime",       fmt_runtime(rec.get('runtime'))),
+                ("⭐ Rating",        fmt_val(rec.get('vote_average'), "/10")),
+                ("💰 Budget",        fmt_money(rec.get('budget'))),
+                ("💵 Revenue",       fmt_money(rec.get('revenue'))),
+            ]
+
+            items_html = "".join(
+                f'<div class="detail-item"><div class="detail-label">{lbl}</div><div class="detail-value">{val}</div></div>'
+                for lbl, val in details
+            )
+            st.markdown(f'<div class="detail-grid">{items_html}</div>', unsafe_allow_html=True)
+
+            # Cast — pair up tokens as "First Last", comma-separated
+            cast_raw = str(rec.get('cast', '')).strip()
+            if cast_raw and cast_raw != 'nan':
+                tokens = cast_raw.split()
+                names = [" ".join(tokens[i:i+2]) for i in range(0, len(tokens), 2)]
+                cast_names = ", ".join(names)
+                st.markdown(
+                    f'<div class="detail-item" style="margin-bottom:0.5rem">'
+                    f'<div class="detail-label">🎭 Cast</div>'
+                    f'<div class="detail-value">{cast_names}</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+            # Production companies — stored as JSON array [{"name":…,"id":…}, …]
+            import json
+            prod_raw = str(rec.get('production_companies', '')).strip()
+            if prod_raw and prod_raw != 'nan':
+                try:
+                    prod_names = ", ".join(p['name'] for p in json.loads(prod_raw))
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    prod_names = prod_raw
+                if prod_names:
+                    st.markdown(
+                        f'<div class="detail-item">'
+                        f'<div class="detail-label">🏢 Production</div>'
+                        f'<div class="detail-value">{prod_names}</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
 elif not run:
     st.markdown("""
